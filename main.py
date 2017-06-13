@@ -8,39 +8,46 @@ import itertools
 class Game(object):
 
     def __init__(self):
-        self.fps = 30
+        self.fps = 60
         self.clock = pygame.time.Clock()
         self.screen_width = 720
         self.screen_height = 960
         self.rows = 8
         self.columns = 8
+        self.dt = 0
 
         pygame.init()
-        pygame.display.set_caption("Klocki ALPHA")
+        pygame.display.set_caption("Clotzky")
         self.display = pygame.display.set_mode((self.screen_width, self.screen_height))
         self.board = Board(self.rows, self.columns)
 
     def loop(self):
         while True:
             self.draw()
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.quit()
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    self.board.input(event)
+            self.events()
             self.board.match()
             self.board.remove()
             self.clock.tick(self.fps)
+            self.dt = 0
 
-    def quit(self):
-        pygame.quit()
-        sys.exit()
+    def events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.quit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                self.board.input(event)
+            # if event.type == pygame.KEYDOWN:
+            #     self.board.input(event)
 
     def draw(self):
         self.board.draw(self.display)
         # self.board.draw_cursor(self.display)
         # print("fps: ", self.clock.get_fps())
         pygame.display.update()
+
+    def quit(self):
+        pygame.quit()
+        sys.exit()
 
 
 class Board(object):
@@ -69,38 +76,47 @@ class Board(object):
 
         tiles_list = "empty red blue green yellow"
         # stworzenie listy przechowujaca zaladowane pliki z obrazkami klockow
-        self.tiles_list = [pygame.image.load("images/{}.png".format(tile)) for tile in tiles_list.split()]
+        self.tiles_image = [pygame.image.load("images/{}.png".format(tile)) for tile in tiles_list.split()]
         # przeskalowanie obrazkow klockow wzgledem wielkosci ekranu
-        self.tiles_list = [pygame.transform.scale(i, (self.tile_side, self.tile_side)) for i in self.tiles_list]
+        self.tiles_image = [pygame.transform.scale(i, (self.tile_side, self.tile_side)) for i in self.tiles_image]
         # zapełnienie planszy przezroczystmi obrazkami (puste pola)
-        self.board = [self.tiles_list[0] for _ in range(self.size)]
+        self.board = [self.tiles_image[0] for _ in range(self.size)]
         # stworzenie rect na podstawie board
         self.tiles_rect_list = [tile.get_rect() for tile in self.board]
-        # stworzenie obiektow klasy Tiles
-        self.board = [Tiles(self.tiles_list[0], (0, 0)) for _ in range(self.size)]
+        print(self.tiles_rect_list[1])
         # przypisanie obiektom odppowiednich wspolrzednych
         for i, tile in enumerate(self.tiles_rect_list):
             tile.x = (self.left_margin + ((i % self.columns) * self.tile_side*1))
             tile.y = (self.top_margin + (math.floor(i / self.columns) * self.tile_side*1))
+        # stworzenie obiektow klasy Tiles
+        self.board = [Tiles(self.tiles_image[0], (self.tiles_rect_list[i])) for i in range(self.size)]
+        print(self.tiles_rect_list[1])
+        print("down")
+        print(self.board[1].tile_rect.y)
         self.reset()
 
     def reset(self):
         for i in range(self.size):
-            self.board[i] = Tiles(random.choice(self.tiles_list[1:-1]), self.tiles_rect_list)
+            self.board[i] = Tiles(random.choice(self.tiles_image[1:-1]), self.tiles_rect_list)
 
     def input(self, event):
+        # zaznaczenie klocka
         if not self.selected:
             for i, tile in enumerate(self.tiles_rect_list):
-                if tile.collidepoint(event.pos):
+                if tile.collidepoint(event.pos) and self.board[i].tile_type in self.tiles_image[1:-1]:
                     self.selected = True
                     self.cursor = i
+                    print(self.board[i].tile_rect.y)
         elif self.selected:
             self.switch(event)
+        # if event.key == pygame.K_DOWN:
+        #     self.board[0].tile_rect.move(0, 1)
+        #     self.tiles_rect_list[self.cursor] = self.tiles_rect_list[self.cursor].move(self.vy, self.vy)
+        #     self.vy = -self.vy
 
     def switch(self, event):
-        self.event = event
         for i, tile in enumerate(self.tiles_rect_list):
-            if tile.collidepoint(event.pos):
+            if tile.collidepoint(event.pos) and self.board[i].tile_type in self.tiles_image[1:-1]:
                 # cofniecie zaznaczenia klocka
                 if self.cursor == i:
                     self.selected = False
@@ -109,11 +125,23 @@ class Board(object):
 
                 # zamiana miejsc dwoch klockow
                 else:
-                    if i in (self.cursor + 1, self.cursor - 1, self.cursor + 8, self.cursor - 8):
-                        self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
-                        self.selected = False
-                        # print("kursor:", self.cursor)
-                        # print("i:", i)
+                    # zabezpieczenie przed zamiana pierwszego klocka w rzedzie z ostatnim klockiem rzedu wyzszego
+                    if self.cursor % self.columns == 0 and i % self.columns == self.columns - 1:
+                        if i in (self.cursor + 1, self.cursor + self.columns, self.cursor - self.columns):
+                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
+                                self.selected = False
+
+                    # zabezpieczenie przed zamiana ostatniego klocka w rzedzie z pierwszym klockiem rzedu nizszego
+                    elif self.cursor % self.columns == self.columns - 1 and i % self.columns == 0:
+                        if i in (self.cursor - 1, self.cursor + self.columns, self.cursor - self.columns):
+                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
+                                self.selected = False
+                    else:
+                        if i in (self.cursor + 1, self.cursor - 1, self.cursor + self.columns, self.cursor - self.columns):
+                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
+                                self.selected = False
+                                # print("kursor:", self.cursor)
+                                # print("i:", i)
 
     def match(self):
         def lines():
@@ -134,7 +162,7 @@ class Board(object):
     def remove(self):
         for line in self.match():
             for i in line:
-                self.board[i] = Tiles(self.tiles_list[0], self.tiles_rect_list)
+                self.board[i] = Tiles(self.tiles_image[0], self.tiles_rect_list)
 
     def draw(self, display):
         # rysowanie tla

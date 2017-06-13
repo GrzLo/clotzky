@@ -90,58 +90,66 @@ class Board(object):
             tile.y = (self.top_margin + (math.floor(i / self.columns) * self.tile_side*1))
         # stworzenie obiektow klasy Tiles
         self.board = [Tiles(self.tiles_image[0], (self.tiles_rect_list[i])) for i in range(self.size)]
-        print(self.tiles_rect_list[1])
-        print("down")
-        print(self.board[1].tile_rect.y)
         self.reset()
 
     def reset(self):
         for i in range(self.size):
-            self.board[i] = Tiles(random.choice(self.tiles_image[1:-1]), self.tiles_rect_list)
+            self.board[i] = Tiles(random.choice(self.tiles_image[1:-1]), self.board[i].tile_rect)
 
     def input(self, event):
         # zaznaczenie klocka
         if not self.selected:
-            for i, tile in enumerate(self.tiles_rect_list):
-                if tile.collidepoint(event.pos) and self.board[i].tile_type in self.tiles_image[1:-1]:
-                    self.selected = True
+            for i, tile in enumerate(self.board):
+                if tile.tile_rect.collidepoint(event.pos) and tile.tile_type in self.tiles_image[1:-1]:
                     self.cursor = i
-                    print(self.board[i].tile_rect.y)
+                    self.selected = True
+                    print("coord selection", tile.tile_rect)
+                    print("cursor", self.cursor)
+
         elif self.selected:
             self.switch(event)
         # if event.key == pygame.K_DOWN:
-        #     self.board[0].tile_rect.move(0, 1)
-        #     self.tiles_rect_list[self.cursor] = self.tiles_rect_list[self.cursor].move(self.vy, self.vy)
-        #     self.vy = -self.vy
+        #     self.board[0].tile_rect.move(10, 10)
+        #     print("3", self.board[0].tile_rect)
 
     def switch(self, event):
-        for i, tile in enumerate(self.tiles_rect_list):
-            if tile.collidepoint(event.pos) and self.board[i].tile_type in self.tiles_image[1:-1]:
-                # cofniecie zaznaczenia klocka
+        def switch_animation(selected, target):
+            self.distance_x = (selected.tile_rect.x - target.tile_rect.x)
+            self.distance_y = (selected.tile_rect.y - target.tile_rect.y)
+            print("1 sel", selected.tile_rect)
+            print("1 tar", target.tile_rect)
+            selected.tile_rect.move_ip(-self.distance_x, -self.distance_y)
+            target.tile_rect.move_ip(self.distance_x, self.distance_y)
+            print("2 sel", selected.tile_rect)
+            print("2 tar", target.tile_rect)
+
+        for i, tile in enumerate(self.board):
+            if tile.tile_rect.collidepoint(event.pos) and tile.tile_type in self.tiles_image[1:-1]:
+                # cofniecie zaznaczenia klocka jesli nastapi jego ponowne klikniecie
                 if self.cursor == i:
                     self.selected = False
-                    # print("kursor:", self.cursor)
-                    # print("i:", i)
 
                 # zamiana miejsc dwoch klockow
                 else:
                     # zabezpieczenie przed zamiana pierwszego klocka w rzedzie z ostatnim klockiem rzedu wyzszego
                     if self.cursor % self.columns == 0 and i % self.columns == self.columns - 1:
                         if i in (self.cursor + 1, self.cursor + self.columns, self.cursor - self.columns):
-                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
                                 self.selected = False
+                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
+                                switch_animation(self.board[self.cursor], self.board[i])
 
                     # zabezpieczenie przed zamiana ostatniego klocka w rzedzie z pierwszym klockiem rzedu nizszego
                     elif self.cursor % self.columns == self.columns - 1 and i % self.columns == 0:
                         if i in (self.cursor - 1, self.cursor + self.columns, self.cursor - self.columns):
-                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
                                 self.selected = False
+                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
+                                switch_animation(self.board[self.cursor], self.board[i])
+
                     else:
                         if i in (self.cursor + 1, self.cursor - 1, self.cursor + self.columns, self.cursor - self.columns):
-                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
                                 self.selected = False
-                                # print("kursor:", self.cursor)
-                                # print("i:", i)
+                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
+                                switch_animation(self.board[self.cursor], self.board[i])
 
     def match(self):
         def lines():
@@ -162,16 +170,19 @@ class Board(object):
     def remove(self):
         for line in self.match():
             for i in line:
-                self.board[i] = Tiles(self.tiles_image[0], self.tiles_rect_list)
+                self.board[i] = Tiles(self.tiles_image[0], self.board[i].tile_rect)
+
+    def fall(self):
+        pass
 
     def draw(self, display):
         # rysowanie tla
         display.blit(self.background, (0, 0))
         # rysowanie biezacej zawartosci tablicy
         for i, tile in enumerate(self.board):
-            display.blit(tile.tile_type, self.tiles_rect_list[i])
+            display.blit(tile.tile_type, tile.tile_rect)
         if self.selected:
-            self.tiles_rect_list[self.cursor] = self.tiles_rect_list[self.cursor].move(self.vy, self.vy)
+            self.board[self.cursor].tile_rect = self.board[self.cursor].tile_rect.move(self.vy, self.vy)
             self.vy = -self.vy
 
 

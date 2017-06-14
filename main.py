@@ -3,6 +3,7 @@ import sys
 import math
 import random
 import itertools
+import pickle
 
 
 class Game(object):
@@ -83,18 +84,20 @@ class Board(object):
         self.board = [self.tiles_image[0] for _ in range(self.size)]
         # stworzenie rect na podstawie board
         self.tiles_rect_list = [tile.get_rect() for tile in self.board]
-        print(self.tiles_rect_list[1])
         # przypisanie obiektom odppowiednich wspolrzednych
         for i, tile in enumerate(self.tiles_rect_list):
             tile.x = (self.left_margin + ((i % self.columns) * self.tile_side*1))
             tile.y = (self.top_margin + (math.floor(i / self.columns) * self.tile_side*1))
         # stworzenie obiektow klasy Tiles
-        self.board = [Tiles(self.tiles_image[0], (self.tiles_rect_list[i])) for i in range(self.size)]
-        self.reset()
+        self.board = [Tiles(self.tiles_image[1], (self.tiles_rect_list[i])) for i in range(self.size)]
+        self.board_generator()
 
-    def reset(self):
-        for i in range(self.size):
-            self.board[i] = Tiles(random.choice(self.tiles_image[1:-1]), self.board[i].tile_rect)
+    def board_generator(self):
+        while self.match():
+            for i in range(self.size):
+                self.board[i] = Tiles(random.choice(self.tiles_image[1:-1]), self.board[i].tile_rect)
+            # with open("generatedboards.pk1", "wb") as output:
+            #     pickle.dump(self.board, output, pickle.HIGHEST_PROTOCOL)
 
     def input(self, event):
         # zaznaczenie klocka
@@ -103,25 +106,19 @@ class Board(object):
                 if tile.tile_rect.collidepoint(event.pos) and tile.tile_type in self.tiles_image[1:-1]:
                     self.cursor = i
                     self.selected = True
-                    print("coord selection", tile.tile_rect)
-                    print("cursor", self.cursor)
+                    # print("coord selection", tile.tile_rect)
+                    # print("cursor", self.cursor)
+                    # self.possible_match()
 
         elif self.selected:
             self.switch(event)
-        # if event.key == pygame.K_DOWN:
-        #     self.board[0].tile_rect.move(10, 10)
-        #     print("3", self.board[0].tile_rect)
 
     def switch(self, event):
         def switch_animation(selected, target):
             self.distance_x = (selected.tile_rect.x - target.tile_rect.x)
             self.distance_y = (selected.tile_rect.y - target.tile_rect.y)
-            print("1 sel", selected.tile_rect)
-            print("1 tar", target.tile_rect)
             selected.tile_rect.move_ip(-self.distance_x, -self.distance_y)
             target.tile_rect.move_ip(self.distance_x, self.distance_y)
-            print("2 sel", selected.tile_rect)
-            print("2 tar", target.tile_rect)
 
         for i, tile in enumerate(self.board):
             if tile.tile_rect.collidepoint(event.pos) and tile.tile_type in self.tiles_image[1:-1]:
@@ -137,6 +134,9 @@ class Board(object):
                                 self.selected = False
                                 self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
                                 switch_animation(self.board[self.cursor], self.board[i])
+                                if not self.match():
+                                    self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
+                                    switch_animation(self.board[self.cursor], self.board[i])
 
                     # zabezpieczenie przed zamiana ostatniego klocka w rzedzie z pierwszym klockiem rzedu nizszego
                     elif self.cursor % self.columns == self.columns - 1 and i % self.columns == 0:
@@ -144,12 +144,18 @@ class Board(object):
                                 self.selected = False
                                 self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
                                 switch_animation(self.board[self.cursor], self.board[i])
+                                if not self.match():
+                                    self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
+                                    switch_animation(self.board[self.cursor], self.board[i])
 
                     else:
                         if i in (self.cursor + 1, self.cursor - 1, self.cursor + self.columns, self.cursor - self.columns):
                                 self.selected = False
                                 self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
                                 switch_animation(self.board[self.cursor], self.board[i])
+                                if not self.match():
+                                    self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
+                                    switch_animation(self.board[self.cursor], self.board[i])
 
     def match(self):
         def lines():
@@ -162,15 +168,35 @@ class Board(object):
         def compare():
             for i, line in enumerate(lines()):
                 for k, g in itertools.groupby(line, lambda i: self.board[i].tile_type):
+                    # if k == self.tiles_image[0]:
+                    #     pass
+                    # else:
                     sequence = list(g)
-                    if len(sequence) >= 3:
+                    if len(sequence) >= 3 and k in self.tiles_image[1:-1]:
+                        yield sequence
+        return list(compare())
+
+    def possible_match(self):
+        def lines():
+            for i in range(self.columns):
+                yield range(i, self.size, self.columns)
+
+            for j in range(self.rows):
+                yield range(j * self.columns, (j + 1) * self.columns)
+
+        def compare():
+            for i, line in enumerate(lines()):
+                for k, g in itertools.groupby(line, lambda i: self.board[i].tile_type):
+                    sequence = list(g)
+                    if len(sequence) == 2:
                         yield sequence
         return list(compare())
 
     def remove(self):
+        pass
         for line in self.match():
             for i in line:
-                self.board[i] = Tiles(self.tiles_image[0], self.board[i].tile_rect)
+                self.board[i].tile_type = self.tiles_image[0]
 
     def fall(self):
         pass

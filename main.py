@@ -60,12 +60,13 @@ class Board(object):
         # inicjalizacja zmiennych zwiazanych z polem gry
         self.event = None
         self.matches = None
-        self.fall = None
         self.cursor = None
         self.selected = False
         self.animation = []
         # zmienna przechowywujaca ktore obiekty zamienic miejscami oraz jaka jest pomiedzy nimi odleglosc
         self.switch_details = []
+        # zmienna przechowujaca ktore obiekty maja spadac
+        self.refill_details = None
         self.vy = 5
         self.asd = True
 
@@ -114,7 +115,6 @@ class Board(object):
                 self.switch(event)
 
     def switch(self, event):
-
         for i, tile in enumerate(self.board):
             if tile.tile_position.collidepoint(event.pos) and tile.tile_type in self.tile_images[1:-1]:
 
@@ -202,18 +202,25 @@ class Board(object):
         print(compare())
         return list(compare())
 
+    def refill_check(self):
+        for i in range(self.size-8):
+            if self.board[i+8] in self.board and self.board[i+8].tile_type == self.tile_images[0]:
+                self.board[i].tile_position, self.board[i+8].tile_position = self.board[i+8].tile_position, self.board[i].tile_position
+                self.board[i], self.board[i+8] = self.board[i+8], self.board[i]
+
     def tick(self):
         if self.selected:
+            self.board[self.cursor].update_image("selected", 1)
             if self.asd:
                 self.asd = False
                 print(self.cursor)
-            self.board[self.cursor].update(0, 0, True)
             # print(self.board[self.cursor].tile_position.h)
             # self.board[self.cursor].tile_position = self.board[self.cursor].tile_position.inflate(10, 10)
             # self.selected = False
             # self.vy = -self.v
 
         if not self.animation:
+            self.refill_check()
             self.matches = self.match()
             if self.matches:
                 for match in self.matches:
@@ -224,20 +231,20 @@ class Board(object):
 
     def animate(self, animation):
         def normal():
-            self.switch_details[0].update(self.switch_details[2], self.switch_details[3], False)
-            self.switch_details[1].update(-self.switch_details[2], -self.switch_details[3], False)
+            self.switch_details[0].update(self.switch_details[2], self.switch_details[3])
+            self.switch_details[1].update(-self.switch_details[2], -self.switch_details[3])
             self.animation[1] -= 2
             if self.animation[1] == 0:
                 self.animation = []
 
         def revert():
             if animation[1] > self.tile_side:
-                self.switch_details[0].update(self.switch_details[2], self.switch_details[3], False)
-                self.switch_details[1].update(-self.switch_details[2], -self.switch_details[3], False)
+                self.switch_details[0].update(self.switch_details[2], self.switch_details[3])
+                self.switch_details[1].update(-self.switch_details[2], -self.switch_details[3])
                 self.animation[1] -= 2
             else:
-                self.switch_details[0].update(-self.switch_details[2], -self.switch_details[3], False)
-                self.switch_details[1].update(self.switch_details[2], self.switch_details[3], False)
+                self.switch_details[0].update(-self.switch_details[2], -self.switch_details[3])
+                self.switch_details[1].update(self.switch_details[2], self.switch_details[3])
                 self.animation[1] -= 2
                 if self.animation[1] == 0:
                     self.animation = []
@@ -257,6 +264,9 @@ class Board(object):
         # rysowanie biezacej zawartosci tablicy
         for tile in self.board:
             display.blit(tile.tile_type, tile.tile_position)
+        # if self.selected:
+            # self.board[self.cursor].tile_type = pygame.transform.rotate(self.board[self.cursor].tile_type, 1)
+            # pygame.draw.rect(display, (255, 255, 255), [self.board[self.cursor].tile_position.x+10, self.board[self.cursor].tile_position.y+10, self.tile_side-10,  self.tile_side-10], 5)
 
 
 class Tiles(pygame.sprite.Sprite):
@@ -268,8 +278,10 @@ class Tiles(pygame.sprite.Sprite):
         self.tile_position = self.tile_position.get_rect()
         self.tile_type = tile_type
         self.tile_type_copy = tile_type
+        self.update_image(self.tile_type, 0)
+        self.dt = 30
 
-    def update(self, move_x, move_y, selected):
+    def update(self, move_x, move_y):
         # if selected:
             # print(self.tile_position)
             # self.tile_type = self.images[1]
@@ -279,6 +291,18 @@ class Tiles(pygame.sprite.Sprite):
             self.tile_position.x += (move_x / abs(move_x)) * 2
         if move_y != 0:
             self.tile_position.y += (move_y / abs(move_y)) * 2
+
+    def update_image(self, image, angle):
+        # if image == "selected":
+        #     if self.dt == 30:
+        #         self.tile_type = pygame.transform.rotate(self.tile_type, angle)
+        #         self.dt = 0
+        #     elif self.dt < 30:
+        #             self.dt += 1
+        #
+        # elif image == "deselected":
+        pass
+        # self.tile_type = pygame.transform.flip(self.tile_type, 1, 1)
 
 
 if __name__ == '__main__':

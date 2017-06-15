@@ -15,7 +15,6 @@ class Game(object):
         self.screen_height = 960
         self.rows = 8
         self.columns = 8
-        self.dt = 0
 
         pygame.init()
         pygame.display.set_caption("Clotzky")
@@ -26,10 +25,8 @@ class Game(object):
         while True:
             self.draw()
             self.events()
-            self.board.match()
-            self.board.remove()
+            self.board.tick()
             self.clock.tick(self.fps)
-            self.dt = 0
 
     def events(self):
         for event in pygame.event.get():
@@ -37,8 +34,6 @@ class Game(object):
                 self.quit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 self.board.input(event)
-            # if event.type == pygame.KEYDOWN:
-            #     self.board.input(event)
 
     def draw(self):
         self.board.draw(self.display)
@@ -57,13 +52,22 @@ class Board(object):
         self.screen_width = pygame.display.Info().current_w
         self.rows = rows
         self.columns = columns
+        # calkowita liczba klockow na planszy
         self.size = rows * columns
+        # marginesy
         self.left_margin = self.screen_height / 7.68
         self.top_margin = self.screen_width / 6.83
-        self.cursor = None
-        self.vy = 1
-        self.selected = False
+        # inicjalizacja zmiennych zwiazanych z polem gry
         self.event = None
+        self.matches = None
+        self.fill = None
+        self.cursor = None
+        self.selected = False
+        self.animation = []
+        # zmienna przechowywujaca ktore obiekty zamienic miejscami oraz jaka jest pomiedzy nimi odleglosc
+        self.switch_details = []
+        self.vy = 5
+        self.asd = True
 
         # ustawienie wartości długości boków klocków
         if self.rows > self.columns:
@@ -74,28 +78,24 @@ class Board(object):
         self.background = pygame.image.load("images/bg.jpg")
         # przeskalowanie obrazka tla wzgledem wielkosci ekranu
         self.background = pygame.transform.scale(self.background, (self.screen_width, self.screen_height))
-
-        tiles_list = "empty red blue green yellow"
-        # stworzenie listy przechowujaca zaladowane pliki z obrazkami klockow
-        self.tiles_image = [pygame.image.load("images/{}.png".format(tile)) for tile in tiles_list.split()]
-        # przeskalowanie obrazkow klockow wzgledem wielkosci ekranu
-        self.tiles_image = [pygame.transform.scale(i, (self.tile_side, self.tile_side)) for i in self.tiles_image]
-        # zapełnienie planszy przezroczystmi obrazkami (puste pola)
-        self.board = [self.tiles_image[0] for _ in range(self.size)]
-        # stworzenie rect na podstawie board
-        self.tiles_rect_list = [tile.get_rect() for tile in self.board]
-        # przypisanie obiektom odppowiednich wspolrzednych
-        for i, tile in enumerate(self.tiles_rect_list):
-            tile.x = (self.left_margin + ((i % self.columns) * self.tile_side*1))
-            tile.y = (self.top_margin + (math.floor(i / self.columns) * self.tile_side*1))
-        # stworzenie obiektow klasy Tiles
-        self.board = [Tiles(self.tiles_image[1], (self.tiles_rect_list[i])) for i in range(self.size)]
+        # lista klockow
+        self.tiles_list = ["empty", "red", "blue", "green", "yellow"]
+        # ladowanie obrazkow klockow
+        self.tile_images_original = [pygame.image.load("images/{}.png".format(i)) for i in self.tiles_list]
+        # przeskalowanie obrazkow klockow
+        self.tile_images = [pygame.transform.scale(i, (self.tile_side, self.tile_side)) for i in self.tile_images_original]
+        # zapelnienie planszy, stworzenie obiektow klasy Tiles
+        self.board = [Tiles(self.tile_images[1], (self.tile_side, self.tile_side), self.tile_images_original) for _ in range(self.size)]
+        # przypisanie obiektom odpowiednich wspolrzednych
+        for i, tile in enumerate(self.board):
+            tile.tile_position.x = (self.left_margin + ((i % self.columns) * self.tile_side * 1))
+            tile.tile_position.y = (self.top_margin + (math.floor(i / self.columns) * self.tile_side * 1))
         self.board_generator()
 
     def board_generator(self):
         while self.match():
             for i in range(self.size):
-                self.board[i] = Tiles(random.choice(self.tiles_image[1:-1]), self.board[i].tile_rect)
+                self.board[i].tile_type = random.choice(self.tile_images[1:-1])
             # with open("generatedboards.pk1", "wb") as output:
             #     pickle.dump(self.board, output, pickle.HIGHEST_PROTOCOL)
 
@@ -103,28 +103,26 @@ class Board(object):
         # zaznaczenie klocka
         if not self.selected:
             for i, tile in enumerate(self.board):
-                if tile.tile_rect.collidepoint(event.pos) and tile.tile_type in self.tiles_image[1:-1]:
+                if tile.tile_position.collidepoint(event.pos) and tile.tile_type in self.tile_images[1:-1]:
                     self.cursor = i
                     self.selected = True
-                    # print("coord selection", tile.tile_rect)
-                    # print("cursor", self.cursor)
                     # self.possible_match()
 
         elif self.selected:
             self.switch(event)
 
     def switch(self, event):
-        def switch_animation(selected, target):
-            self.distance_x = (selected.tile_rect.x - target.tile_rect.x)
-            self.distance_y = (selected.tile_rect.y - target.tile_rect.y)
-            selected.tile_rect.move_ip(-self.distance_x, -self.distance_y)
-            target.tile_rect.move_ip(self.distance_x, self.distance_y)
 
         for i, tile in enumerate(self.board):
-            if tile.tile_rect.collidepoint(event.pos) and tile.tile_type in self.tiles_image[1:-1]:
+            if tile.tile_position.collidepoint(event.pos) and tile.tile_type in self.tile_images[1:-1]:
+
                 # cofniecie zaznaczenia klocka jesli nastapi jego ponowne klikniecie
                 if self.cursor == i:
                     self.selected = False
+                    self.asd = True
+                    tile.tile_position.x = (self.left_margin + ((i % self.columns) * self.tile_side * 1))
+                    tile.tile_position.y = (self.top_margin + (math.floor(i / self.columns) * self.tile_side * 1))
+                    print(tile.tile_position.x, tile.tile_position.y)
 
                 # zamiana miejsc dwoch klockow
                 else:
@@ -132,30 +130,38 @@ class Board(object):
                     if self.cursor % self.columns == 0 and i % self.columns == self.columns - 1:
                         if i in (self.cursor + 1, self.cursor + self.columns, self.cursor - self.columns):
                                 self.selected = False
-                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
-                                switch_animation(self.board[self.cursor], self.board[i])
-                                if not self.match():
-                                    self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
-                                    switch_animation(self.board[self.cursor], self.board[i])
+                                self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
+                                if self.match():
+                                    self.animation = (1, self.tile_side)
+                                else:
+                                    self.animation = (2, self.tile_side*2)
+                                    self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
 
                     # zabezpieczenie przed zamiana ostatniego klocka w rzedzie z pierwszym klockiem rzedu nizszego
                     elif self.cursor % self.columns == self.columns - 1 and i % self.columns == 0:
                         if i in (self.cursor - 1, self.cursor + self.columns, self.cursor - self.columns):
                                 self.selected = False
-                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
-                                switch_animation(self.board[self.cursor], self.board[i])
-                                if not self.match():
-                                    self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
-                                    switch_animation(self.board[self.cursor], self.board[i])
+                                self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
+                                if self.match():
+                                    self.animation = (1, self.tile_side)
+                                else:
+                                    self.animation = (2, self.tile_side*2)
+                                    self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
 
                     else:
                         if i in (self.cursor + 1, self.cursor - 1, self.cursor + self.columns, self.cursor - self.columns):
                                 self.selected = False
-                                self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
-                                switch_animation(self.board[self.cursor], self.board[i])
-                                if not self.match():
-                                    self.board[i], self.board[self.cursor] = self.board[self.cursor], self.board[i]
-                                    switch_animation(self.board[self.cursor], self.board[i])
+                                self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
+                                if self.match():
+                                    self.animation = [1, self.tile_side]
+                                    print(self.animation)
+                                else:
+                                    self.animation = [2, self.tile_side*2]
+                                    print(self.animation)
+                                    self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
+
+                    self.switch_details = [self.board[self.cursor], self.board[i], self.board[i].tile_position.x - self.board[self.cursor].tile_position.x, self.board[i].tile_position.y - self.board[self.cursor].tile_position.y]
+                    # print(self.switch_details)
 
     def match(self):
         def lines():
@@ -172,8 +178,9 @@ class Board(object):
                     #     pass
                     # else:
                     sequence = list(g)
-                    if len(sequence) >= 3 and k in self.tiles_image[1:-1]:
+                    if len(sequence) >= 3 and k in self.tile_images[1:-1]:
                         yield sequence
+        # print(list(compare()))
         return list(compare())
 
     def possible_match(self):
@@ -190,32 +197,83 @@ class Board(object):
                     sequence = list(g)
                     if len(sequence) == 2:
                         yield sequence
+        print(compare())
         return list(compare())
 
-    def remove(self):
-        pass
-        for line in self.match():
-            for i in line:
-                self.board[i].tile_type = self.tiles_image[0]
+    def tick(self):
+        if self.selected:
+            if self.asd:
+                self.asd = False
+                print(self.cursor)
+            self.board[self.cursor].update(0, 0, True)
+            # print(self.board[self.cursor].tile_position.h)
+            # self.board[self.cursor].tile_position = self.board[self.cursor].tile_position.inflate(10, 10)
+            # self.selected = False
+            # self.vy = -self.v
 
-    def fall(self):
-        pass
+        if self.animation and self.animation[1] == 0:
+            self.matches = self.match()
+            if self.matches:
+                for match in self.matches:
+                    for tile in match:
+                        self.board[tile].tile_type = self.tile_images[0]
+
+        self.animate(self.animation)
+
+    def animate(self, animation):
+        def normal():
+            self.switch_details[0].update(self.switch_details[2], self.switch_details[3], False)
+            self.switch_details[1].update(-self.switch_details[2], -self.switch_details[3], False)
+            self.animation[1] -= 1
+
+        def revert():
+            if animation[1] > self.tile_side:
+                self.switch_details[0].update(self.switch_details[2], self.switch_details[3], False)
+                self.switch_details[1].update(-self.switch_details[2], -self.switch_details[3], False)
+                self.animation[1] -= 1
+            else:
+                self.switch_details[0].update(-self.switch_details[2], -self.switch_details[3], False)
+                self.switch_details[1].update(self.switch_details[2], self.switch_details[3], False)
+                self.animation[1] -= 1
+
+        if animation:
+            if animation[0] == 1 and animation[1] > 0:
+                normal()
+            elif animation[0] == 2 and animation[1] > 0:
+                revert()
+
+        # def fall(self):
+        #     pass
 
     def draw(self, display):
         # rysowanie tla
         display.blit(self.background, (0, 0))
         # rysowanie biezacej zawartosci tablicy
-        for i, tile in enumerate(self.board):
-            display.blit(tile.tile_type, tile.tile_rect)
-        if self.selected:
-            self.board[self.cursor].tile_rect = self.board[self.cursor].tile_rect.move(self.vy, self.vy)
-            self.vy = -self.vy
+        for tile in self.board:
+            display.blit(tile.tile_type, tile.tile_position)
 
 
-class Tiles(object):
-    def __init__(self, tile_type, tile_rect):
+class Tiles(pygame.sprite.Sprite):
+    def __init__(self, tile_type, size, images):
+        pygame.sprite.Sprite.__init__(self)
+        self.images = images
+        # stworzenie obiektu surface i rect
+        self.tile_position = pygame.Surface(size)
+        self.tile_position = self.tile_position.get_rect()
         self.tile_type = tile_type
-        self.tile_rect = tile_rect
+        self.tile_type_copy = tile_type
+
+    def update(self, move_x, move_y, selected):
+        # if selected:
+            # print(self.tile_position)
+            # self.tile_type = self.images[1]
+        # else:
+        #     self.tile_type = self.tile_type_copy
+        if move_x != 0:
+            self.tile_position.x += move_x / abs(move_x)
+        if move_y != 0:
+            self.tile_position.y += move_y / abs(move_y)
+
 
 if __name__ == '__main__':
     Game().loop()

@@ -60,7 +60,7 @@ class Board(object):
         # inicjalizacja zmiennych zwiazanych z polem gry
         self.event = None
         self.matches = None
-        self.fill = None
+        self.fall = None
         self.cursor = None
         self.selected = False
         self.animation = []
@@ -101,15 +101,17 @@ class Board(object):
 
     def input(self, event):
         # zaznaczenie klocka
-        if not self.selected:
-            for i, tile in enumerate(self.board):
-                if tile.tile_position.collidepoint(event.pos) and tile.tile_type in self.tile_images[1:-1]:
-                    self.cursor = i
-                    self.selected = True
-                    # self.possible_match()
+        print(self.animation)
+        if not self.animation:
+            if not self.selected:
+                for i, tile in enumerate(self.board):
+                    if tile.tile_position.collidepoint(event.pos) and tile.tile_type in self.tile_images[1:-1]:
+                        self.cursor = i
+                        self.selected = True
+                        # self.possible_match()
 
-        elif self.selected:
-            self.switch(event)
+            elif self.selected:
+                self.switch(event)
 
     def switch(self, event):
 
@@ -120,8 +122,8 @@ class Board(object):
                 if self.cursor == i:
                     self.selected = False
                     self.asd = True
-                    tile.tile_position.x = (self.left_margin + ((i % self.columns) * self.tile_side * 1))
-                    tile.tile_position.y = (self.top_margin + (math.floor(i / self.columns) * self.tile_side * 1))
+                    # tile.tile_position.x = (self.left_margin + ((i % self.columns) * self.tile_side * 1))
+                    # tile.tile_position.y = (self.top_margin + (math.floor(i / self.columns) * self.tile_side * 1))
                     print(tile.tile_position.x, tile.tile_position.y)
 
                 # zamiana miejsc dwoch klockow
@@ -211,7 +213,7 @@ class Board(object):
             # self.selected = False
             # self.vy = -self.v
 
-        if self.animation and self.animation[1] == 0:
+        if not self.animation:
             self.matches = self.match()
             if self.matches:
                 for match in self.matches:
@@ -224,17 +226,21 @@ class Board(object):
         def normal():
             self.switch_details[0].update(self.switch_details[2], self.switch_details[3], False)
             self.switch_details[1].update(-self.switch_details[2], -self.switch_details[3], False)
-            self.animation[1] -= 1
+            self.animation[1] -= 2
+            if self.animation[1] == 0:
+                self.animation = []
 
         def revert():
             if animation[1] > self.tile_side:
                 self.switch_details[0].update(self.switch_details[2], self.switch_details[3], False)
                 self.switch_details[1].update(-self.switch_details[2], -self.switch_details[3], False)
-                self.animation[1] -= 1
+                self.animation[1] -= 2
             else:
                 self.switch_details[0].update(-self.switch_details[2], -self.switch_details[3], False)
                 self.switch_details[1].update(self.switch_details[2], self.switch_details[3], False)
-                self.animation[1] -= 1
+                self.animation[1] -= 2
+                if self.animation[1] == 0:
+                    self.animation = []
 
         if animation:
             if animation[0] == 1 and animation[1] > 0:
@@ -270,9 +276,9 @@ class Tiles(pygame.sprite.Sprite):
         # else:
         #     self.tile_type = self.tile_type_copy
         if move_x != 0:
-            self.tile_position.x += move_x / abs(move_x)
+            self.tile_position.x += (move_x / abs(move_x)) * 2
         if move_y != 0:
-            self.tile_position.y += move_y / abs(move_y)
+            self.tile_position.y += (move_y / abs(move_y)) * 2
 
 
 if __name__ == '__main__':

@@ -21,7 +21,7 @@ class Game(object):
         pygame.display.set_caption("Clotzky")
         self.display = pygame.display.set_mode((self.screen_width, self.screen_height))
         self.font = pygame.font.Font(None, 40)
-        self.gui = Gui(self.font)
+        self.gui = Gui(self.font, self.display)
         self.board = Board(self.rows, self.columns, self.gui)
 
     def loop(self):
@@ -41,7 +41,7 @@ class Game(object):
 
     def draw(self):
         self.board.draw(self.display)
-        self.gui.draw(self.display)
+        self.gui.draw()
         # self.board.draw_cursor(self.display)
         # print("fps: ", self.clock.get_fps())
         pygame.display.update()
@@ -117,7 +117,7 @@ class Board(object):
 
     def input(self, event):
         # zaznaczenie klocka
-        if not self.switch_animation:
+        if not self.switch_animation and not self.fall_animation and not self.refill_animation:
             if not self.selected:
                 for i, tile in enumerate(self.board):
                     if tile.tile_position.collidepoint(event.pos) and tile.color in self.tiles_list[1:-1]:
@@ -247,7 +247,7 @@ class Board(object):
                 self.matches = self.match()
                 if self.matches:
                     for match in self.matches:
-                        self.gui.update_score(self.points * len(match), self.max_score)
+                        self.gui.get_score(self.points * len(match), self.max_score)
                         for tile in match:
                             self.board[tile].color = self.tiles_list[0]
                             self.board[tile].tile_type = self.tile_images[0]
@@ -369,7 +369,9 @@ class Tiles(pygame.sprite.Sprite):
 
 class Gui(object):
 
-    def __init__(self, font):
+    def __init__(self, font, display):
+        self.font = font
+        self.display = display
         self.menubutton = False
         self.mute_music = False
         self.mute_sound = False
@@ -377,28 +379,27 @@ class Gui(object):
         self.max_score = 10000
         self.player_hp = 0
         self.enemy_hp = 0
-        self.font = font
 
-    def main_menu(self):
-        pass
-
-    def end_screen(self):
-        pass
-
-    def update_score(self, points, max_score):
-        self.max_score = max_score
+    def get_score(self, points, max_score):
         self.score += points
-        if self.score > self.max_score:
-            self.score = self.max_score
+        self.max_score = max_score
 
     def events(self):
-        if self.score == 10000:
-            self.end_screen()
+        self.draw()
 
-    def draw(self, display):
-        score = self.font.render("Your score: {} / {}".format(self.score, self.max_score), True, (0, 0, 0))
-        display.blit(score, (150, 600))
+    def draw(self):
+        def end_screen():
+            text = self.font.render("Congratulations you won!", True, (0, 0, 0))
+            self.display.blit(text, (200, 300))
 
+        # def main_menu():
+        #     pass
+
+        if self.score < 10000:
+            score = self.font.render("Your score: {} / {}".format(self.score, self.max_score), True, (0, 0, 0))
+            self.display.blit(score, (150, 600))
+        else:
+            end_screen()
 
 if __name__ == '__main__':
     Game().loop()

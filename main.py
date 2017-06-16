@@ -7,8 +7,8 @@ import pickle
 
 
 class Game(object):
-
     def __init__(self):
+
         self.fps = 60
         self.clock = pygame.time.Clock()
         self.screen_width = 720
@@ -25,6 +25,10 @@ class Game(object):
         self.board = Board(self.rows, self.columns, self.gui)
 
     def loop(self):
+        """
+        Main game loop, all events checks and drawing take place here
+        @return:
+        """
         while True:
             self.draw()
             self.events()
@@ -33,6 +37,9 @@ class Game(object):
             self.clock.tick(self.fps)
 
     def events(self):
+        """
+        Method for checking if any pygame events occur, such as button or key press
+        """
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.quit()
@@ -40,6 +47,10 @@ class Game(object):
                 self.board.input(event)
 
     def draw(self):
+        """
+        Main drawing method. All drawing methods from sub classes are executed here
+        @return:
+        """
         self.board.draw(self.display)
         self.gui.draw()
         # self.board.draw_cursor(self.display)
@@ -47,12 +58,25 @@ class Game(object):
         pygame.display.update()
 
     def quit(self):
+        """
+        Method used to exit the game
+        @return:
+        """
         pygame.quit()
         sys.exit()
 
 
 class Board(object):
     def __init__(self, rows, columns, gui):
+        """
+        The init method for the class board takes 3 parameters
+        @param rows: numbers of rows
+        @param columns: numbers of columns
+        @param gui: gui object, to allow communication between those two classes
+
+        also the main game board is generated here, and different kind of variables for later use
+        the game board is drawn dinamically based on the resolution and row-column ammount
+        """
         self.screen_height = pygame.display.Info().current_h
         self.screen_width = pygame.display.Info().current_w
         self.gui = gui
@@ -68,7 +92,7 @@ class Board(object):
         self.matches = None
         self.cursor = None
         self.selected = False
-        # zmienne przechowywujace czas animacji oraz ktore obiekty zamienic miejscami i jaka jest pomiedzy nimi odleglosc
+        # zmienne przechowywujace czas animacji oraz ktore obiekty zamienic miejscami i jaka jest odleglosc miedzy nimi
         self.switch_animation = []
         self.switch_details = []
         # zmienne przechowujace czas animacji spadania oraz ktore obiekty maja spadac
@@ -107,6 +131,10 @@ class Board(object):
         self.board_generator()
 
     def board_generator(self):
+        """
+        a method to generate a board, it can be also saved to a file and later loaded for less waiting time
+        @return:
+        """
         while self.match():
             for i in range(self.size):
                 choice = random.randrange(1, 4)
@@ -116,6 +144,11 @@ class Board(object):
             #     pickle.dump(self.board, output, pickle.HIGHEST_PROTOCOL)
 
     def input(self, event):
+        """
+        a class that detecs user input and act accordingly depending on the user's action
+        @param event:
+        @return:
+        """
         # zaznaczenie klocka
         if not self.switch_animation and not self.fall_animation and not self.refill_animation:
             if not self.selected:
@@ -129,6 +162,12 @@ class Board(object):
                 self.switch(event)
 
     def switch(self, event):
+        """
+        A method used to switch two tiles next to each other, it is made so that it is impossible to switch several
+        tiles at once or in the not meant direction ie. diagonally
+        @param event:
+        @return:
+        """
         for i, tile in enumerate(self.board):
             if tile.tile_position.collidepoint(event.pos) and tile.color in self.tiles_list[1:-1]:
                 # cofniecie zaznaczenia klocka jesli nastapi jego ponowne klikniecie
@@ -178,6 +217,10 @@ class Board(object):
                     self.switch_details = [self.board[self.cursor], self.board[i], self.board[i].tile_position.x - self.board[self.cursor].tile_position.x, self.board[i].tile_position.y - self.board[self.cursor].tile_position.y]
 
     def match(self):
+        """
+        a method used to find matching tiles which are later removed
+        @return: returns a list of matching tiles
+        """
         def lines():
             for i in range(self.columns):
                 yield range(i, self.size, self.columns)
@@ -215,6 +258,10 @@ class Board(object):
     #     return list(compare())
 
     def fall_check(self):
+        """
+        a method used to check if there are any empty tile. it allows the tiles to fall down
+        @return:
+        """
         for i in range(self.size-self.columns):
             # klocek musi byc kolorowy
             if self.board[i].color in self.tiles_list[1:-1] and self.board[i+self.columns].color == self.tiles_list[0]:
@@ -234,6 +281,10 @@ class Board(object):
         random.shuffle(self.refill_details)
 
     def tick(self):
+        """
+        this method is used to sequence every event such as falling tiles, refilling, swapping
+        @return:
+        """
         if self.selected:
             self.board[self.cursor].update_image(self.board[self.cursor].tile_type, 90)
             # print(self.board[self.cursor].tile_position.h)
@@ -255,7 +306,17 @@ class Board(object):
         self.animate(self.switch_animation, self.fall_animation)
 
     def animate(self, switch_animation, fall_animation):
+        """
+        a method used for animation, both fall animation and switch animation
+        @param switch_animation:
+        @param fall_animation:
+        @return:
+        """
         def normal():
+            """
+            this switch method is used when there is a match
+            @return:
+            """
             # przemiesc pierwszy klocek w miejsce drugiego (roznica wspolrzednych miedzy nimi)
             self.switch_details[0].update(self.switch_details[2], self.switch_details[3])
             # przemiesc drugi klocek w miejsce pierwszego (roznica wspolrzednych miedzy nimi)
@@ -265,6 +326,10 @@ class Board(object):
                 self.switch_animation = []
 
         def revert():
+            """
+            this switch method is used when there is no match, it reverts the tiles back to their original places
+            @return:
+            """
             if switch_animation[1] > self.tile_side:
                 # przemiesc pierwszy klocek w miejsce drugiego
                 self.switch_details[0].update(self.switch_details[2], self.switch_details[3])
@@ -280,6 +345,10 @@ class Board(object):
                     self.switch_animation = []
 
         def fall():
+            """
+            this method is used for fall animation
+            @return:
+            """
             # animacja spadania, osobny czas spadania dla kazdego klocka, gdy wszystkie czasy wyniosa 0, nastepuje czyszczenie tablic
             for i, detail in enumerate(self.fall_details):
                 if self.fall_animation[i] > 0:
@@ -291,6 +360,11 @@ class Board(object):
                     self.fall_details = []
 
         def refill():
+            """
+            this method is used for refill animation, it works only on new "generated tiles" not
+             tiles already on the board
+            @return:
+            """
             # animacja uzupelniania nowych klockow
             for i, detail in enumerate(self.refill_details):
                 if self.refill_animation[i] > 0:
@@ -313,18 +387,28 @@ class Board(object):
             refill()
 
     def draw(self, display):
+        """
+        draw method for the Board class, it draws the board background and the individual tiles
+        @param display:
+        @return:
+        """
         # rysowanie tla
         display.blit(self.background, (0, 0))
         # rysowanie biezacej zawartosci tablicy
         for tile in self.board:
             display.blit(tile.tile_type, tile.tile_position)
-        # if self.selected:
-            # self.board[self.cursor].tile_type = pygame.transform.rotate(self.board[self.cursor].tile_type, 1)
-            # pygame.draw.rect(display, (255, 255, 255), [self.board[self.cursor].tile_position.x+10, self.board[self.cursor].tile_position.y+10, self.tile_side-10,  self.tile_side-10], 5)
 
 
 class Tiles(pygame.sprite.Sprite):
     def __init__(self, tile_type, size, images, dt, color):
+        """
+        initialize the tile object, setting the image of a tile and it's coordinates
+        @param tile_type:
+        @param size:
+        @param images:
+        @param dt:
+        @param color:
+        """
         pygame.sprite.Sprite.__init__(self)
         self.images = images
         # stworzenie obiektu surface i rect
@@ -334,26 +418,39 @@ class Tiles(pygame.sprite.Sprite):
         self.color = color
         self.cycle = 0
         self.dt = dt
-        # self.update_image(self.tile_type, 0)
 
     def update(self, move_x, move_y):
-        # if selected:
-            # print(self.tile_position)
-            # self.tile_type = self.images[1]
-        # else:
-        #     self.tile_type = self.tile_type_copy
+        """
+        method used to animate the tiles in conjunction with the board animation methods
+        @param move_x:
+        @param move_y:
+        @return:
+        """
         if move_x != 0:
             self.tile_position.x += (move_x / abs(move_x)) * self.dt
         if move_y != 0:
             self.tile_position.y += (move_y / abs(move_y)) * self.dt
 
     def fall(self, move_x, move_y):
+        """
+        also an animation method but only used for the falling animation
+        @param move_x:
+        @param move_y:
+        @return:
+        """
         if move_x != 0:
             self.tile_position.x += (move_x / abs(move_x)) * self.dt / 2
         if move_y != 0:
             self.tile_position.y += (move_y / abs(move_y)) * self.dt / 2
 
     def update_image(self, image, angle):
+        """
+        a method used to change the shape, image and potentially other characteristics of a tile
+        it is used for example to rotate the tile on click
+        @param image:
+        @param angle:
+        @return:
+        """
         self.tile_type = image
         if self.cycle == 0:
             self.tile_type = pygame.transform.rotate(image, angle)
@@ -363,13 +460,15 @@ class Tiles(pygame.sprite.Sprite):
                 if self.cycle == 10:
                     self.cycle = 0
 
-        # elif image == "deselected":
-        # self.tile_type = pygame.transform.flip(self.tile_type, 1, 1)
-
 
 class Gui(object):
-
     def __init__(self, font, display):
+        """
+        a prototype Gui class not yet finished, in the future it will display various objects such as player, enemy
+        hp bars and portraits, different buttons etc. for now it is used to show the score and the ending text
+        @param font:
+        @param display:
+        """
         self.font = font
         self.display = display
         self.menubutton = False
@@ -381,6 +480,12 @@ class Gui(object):
         self.enemy_hp = 0
 
     def get_score(self, points, max_score):
+        """
+        method to update the score
+        @param points:
+        @param max_score:
+        @return:
+        """
         self.score += points
         self.max_score = max_score
 
@@ -388,6 +493,10 @@ class Gui(object):
         self.draw()
 
     def draw(self):
+        """
+        drawing method for the Gui class, used to draw the score and end text
+        @return:
+        """
         def end_screen():
             text = self.font.render("Congratulations you won!", True, (0, 0, 0))
             self.display.blit(text, (200, 300))

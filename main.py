@@ -62,11 +62,12 @@ class Board(object):
         self.matches = None
         self.cursor = None
         self.selected = False
-        self.animation = []
-        # zmienna przechowywujaca ktore obiekty zamienic miejscami oraz jaka jest pomiedzy nimi odleglosc
+        # zmienne przechowywujace czas animacji oraz ktore obiekty zamienic miejscami i jaka jest pomiedzy nimi odleglosc
+        self.switch_animation = []
         self.switch_details = []
-        # zmienna przechowujaca ktore obiekty maja spadac
-        self.refill_details = None
+        # zmienne przechowujace czas animacji spadania oraz ktore obiekty maja spadac
+        self.fall_animation = []
+        self.fall_details = []
         self.vy = 5
         self.asd = True
 
@@ -102,8 +103,7 @@ class Board(object):
 
     def input(self, event):
         # zaznaczenie klocka
-        print(self.animation)
-        if not self.animation:
+        if not self.switch_animation:
             if not self.selected:
                 for i, tile in enumerate(self.board):
                     if tile.tile_position.collidepoint(event.pos) and tile.tile_type in self.tile_images[1:-1]:
@@ -134,9 +134,9 @@ class Board(object):
                                 self.selected = False
                                 self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
                                 if self.match():
-                                    self.animation = (1, self.tile_side)
+                                    self.switch_animation = (1, self.tile_side)
                                 else:
-                                    self.animation = (2, self.tile_side*2)
+                                    self.switch_animation = (2, self.tile_side * 2)
                                     self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
 
                     # zabezpieczenie przed zamiana ostatniego klocka w rzedzie z pierwszym klockiem rzedu nizszego
@@ -145,9 +145,9 @@ class Board(object):
                                 self.selected = False
                                 self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
                                 if self.match():
-                                    self.animation = (1, self.tile_side)
+                                    self.switch_animation = (1, self.tile_side)
                                 else:
-                                    self.animation = (2, self.tile_side*2)
+                                    self.switch_animation = (2, self.tile_side * 2)
                                     self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
 
                     else:
@@ -155,15 +155,12 @@ class Board(object):
                                 self.selected = False
                                 self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
                                 if self.match():
-                                    self.animation = [1, self.tile_side]
-                                    print(self.animation)
+                                    self.switch_animation = [1, self.tile_side]
                                 else:
-                                    self.animation = [2, self.tile_side*2]
-                                    print(self.animation)
+                                    self.switch_animation = [2, self.tile_side * 2]
                                     self.board[self.cursor], self.board[i] = self.board[i], self.board[self.cursor]
 
                     self.switch_details = [self.board[self.cursor], self.board[i], self.board[i].tile_position.x - self.board[self.cursor].tile_position.x, self.board[i].tile_position.y - self.board[self.cursor].tile_position.y]
-                    # print(self.switch_details)
 
     def match(self):
         def lines():
@@ -202,11 +199,13 @@ class Board(object):
         print(compare())
         return list(compare())
 
-    def refill_check(self):
+    def fall_check(self):
         for i in range(self.size-8):
-            if self.board[i+8] in self.board and self.board[i+8].tile_type == self.tile_images[0]:
-                self.board[i].tile_position, self.board[i+8].tile_position = self.board[i+8].tile_position, self.board[i].tile_position
+            if self.board[i].tile_type in self.tile_images[1:-1] and self.board[i+8].tile_type == self.tile_images[0]:
+                # self.board[i].tile_position, self.board[i+8].tile_position = self.board[i+8].tile_position, self.board[i].tile_position
                 self.board[i], self.board[i+8] = self.board[i+8], self.board[i]
+                self.fall_details.append([self.board[i], self.board[i+8], self.board[i+8].tile_position.y - self.board[i].tile_position.y])
+                self.fall_animation.append(self.tile_side)
 
     def tick(self):
         if self.selected:
@@ -219,44 +218,60 @@ class Board(object):
             # self.selected = False
             # self.vy = -self.v
 
-        if not self.animation:
-            self.refill_check()
+        if not self.switch_animation:
+            self.fall_check()
             self.matches = self.match()
             if self.matches:
                 for match in self.matches:
                     for tile in match:
                         self.board[tile].tile_type = self.tile_images[0]
 
-        self.animate(self.animation)
+        self.animate(self.switch_animation, self.fall_animation)
 
-    def animate(self, animation):
+    def animate(self, switch_animation, fall_animation):
         def normal():
+            # przemiesc pierwszy klocek w miejsce drugiego (roznica wspolrzednych miedzy nimi)
             self.switch_details[0].update(self.switch_details[2], self.switch_details[3])
+            # przemiesc drugi klocek w miejsce pierwszego (roznica wspolrzednych miedzy nimi)
             self.switch_details[1].update(-self.switch_details[2], -self.switch_details[3])
-            self.animation[1] -= 2
-            if self.animation[1] == 0:
-                self.animation = []
+            self.switch_animation[1] -= 2
+            if self.switch_animation[1] == 0:
+                self.switch_animation = []
 
         def revert():
-            if animation[1] > self.tile_side:
+            if switch_animation[1] > self.tile_side:
+                # przemiesc pierwszy klocek w miejsce drugiego
                 self.switch_details[0].update(self.switch_details[2], self.switch_details[3])
+                # przemiesc drugi klocek w miejsce pierwszego
                 self.switch_details[1].update(-self.switch_details[2], -self.switch_details[3])
-                self.animation[1] -= 2
+                self.switch_animation[1] -= 2
             else:
+                # gdy zamienia sie miejscami, przemiesc je spowrotem do swojego pierwotnego polozenia
                 self.switch_details[0].update(-self.switch_details[2], -self.switch_details[3])
                 self.switch_details[1].update(self.switch_details[2], self.switch_details[3])
-                self.animation[1] -= 2
-                if self.animation[1] == 0:
-                    self.animation = []
+                self.switch_animation[1] -= 2
+                if self.switch_animation[1] == 0:
+                    self.switch_animation = []
 
-        if animation:
-            if animation[0] == 1 and animation[1] > 0:
+        def fall():
+            # animacja spadania, osobny czas spadania dla kazdego klocka, gdy wszystkie czasy wyniosa 0, nastepuje czyszczenie tablic
+            for i, detail in enumerate(self.fall_details):
+                if self.fall_animation[i] > 0:
+                    detail[0].update(0, detail[2])
+                    detail[1].update(0, -detail[2])
+                    self.fall_animation[i] -= 2
+                if self.fall_animation[-1] == 0:
+                    self.fall_animation = []
+                    self.fall_details = []
+
+        if switch_animation:
+            if switch_animation[0] == 1 and switch_animation[1] > 0:
                 normal()
-            elif animation[0] == 2 and animation[1] > 0:
+            elif switch_animation[0] == 2 and switch_animation[1] > 0:
                 revert()
 
-        # def fall(self):
-        #     pass
+        if fall_animation:
+            fall()
 
     def draw(self, display):
         # rysowanie tla
@@ -277,7 +292,6 @@ class Tiles(pygame.sprite.Sprite):
         self.tile_position = pygame.Surface(size)
         self.tile_position = self.tile_position.get_rect()
         self.tile_type = tile_type
-        self.tile_type_copy = tile_type
         self.update_image(self.tile_type, 0)
         self.dt = 30
 
